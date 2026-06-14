@@ -12,6 +12,7 @@ const { sendSignupOtpSchema , verifySignupOtpSchema , resendOtpSchema , loginSch
 const OTP_PURPOSES = require("../constants/otpPurposes");
 const sendAuthResponse = require("../utils/authResponse.utils");
 const {generateTokens , hashRefreshToken , verifyRefreshToken , generatePasswordResetToken} = require("../utils/token.utils");
+const {clearAuthCookies} = require("../utils/cookie.utils");
 
 
 
@@ -211,7 +212,6 @@ exports.verifySignupOtp = async ( req, res, next ) => {
 //resend otp for signup and reset pass but not for change email.
 exports.resendOtp = async ( req, res, next ) => {
     try {
-        console.log("resend-otp")
         const validatedData = resendOtpSchema.parse( req.body );
 
         const { email, purpose } = validatedData;
@@ -542,7 +542,7 @@ exports.verifyForgotPasswordOtp = async ( req, res, next ) => {
                 );
             }
 
-            const user = await User.findOne({ email });
+            const user = await User.findOne({ email }).select("+passwordResetVersion");
 
             const resetToken = generatePasswordResetToken( user );
 
@@ -565,24 +565,36 @@ exports.resetPassword = async ( req, res, next ) => {
         try {
             const { resetToken, newPassword } = resetPasswordSchema.parse(  req.body );
 
-            const decoded = jwt.verify( resetToken, process.env.JWT_RESET_SECRET );
+            const decoded = jwt.verify( resetToken,  process.env.JWT_RESET_SECRET );
 
             if ( decoded.purpose !== "password_reset" ) {
                 return next(
                     new AppError(
-                        "Invalid reset token",
+                        "Invalid reset , please generate new otp",
                         401
                     )
                 );
-            }
+            }    
 
-            const user = await User.findById( decoded.id ).select( "+refreshTokens" );
+            const user = await User.findById( decoded.id ).select( "+passwordResetVersion" );
 
             if (!user) {
                 return next(
                     new AppError(
                         "User not found",
                         404
+                    )
+                );
+            }
+
+            console.log(user);
+
+            const validToken = decoded.version === user.passwordResetVersion;                // when same token used for multiple resets.
+            if(!validToken){
+                return next(
+                    new AppError(
+                        "Invalid reset , please generate new otp",
+                        401
                     )
                 );
             }
@@ -594,7 +606,7 @@ exports.resetPassword = async ( req, res, next ) => {
             | Logout all devices
             |------------------------
             */
-
+            user.passwordResetVersion += 1;
             user.refreshTokens = [];
 
             await user.save();
@@ -619,4 +631,92 @@ exports.resetPassword = async ( req, res, next ) => {
         } catch (error) {
             next(error);
         }
-    };
+};
+
+
+
+
+
+
+
+// logout
+
+exports.logout = async ( req, res, next ) => {
+    try {
+        const clientType = req.headers["x-client-type"];
+
+        const refreshToken = clientType === "web" ? req.cookies?.refreshToken : req.body?.refreshToken;
+
+        if (!refreshToken) {                   // even if refreshtoken expired or notprovided , logout happens
+            if (clientType === "web") {
+                clearAuthCookies(res);
+            }
+
+            return res.status(200).json({
+                success: true,
+                message:
+                    "Logged out successfully",
+            });
+        }
+
+        try {
+            const decoded = verifyRefreshToken( refreshToken );
+
+            const user = await User.findById( decoded.id ).select("+refreshTokens");
+
+            if (user) {
+                const hashedRefreshToken = hashRefreshToken( refreshToken );
+
+                user.refreshTokens = user.refreshTokens.filter( token => token !== hashedRefreshToken );
+
+                await user.save();
+            }
+
+        } catch (error) {
+
+            /*
+            |----------------------------------
+            | Token expired / invalid
+            |----------------------------------
+            | Logout should still succeed.
+            */
+
+        }
+
+        if (clientType === "web") {
+            clearAuthCookies(res);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message:
+                "Logged out successfully",
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+
+
+exports.logoutAllDevices = async ( req, res, next ) => {
+        try {
+            req.user.refreshTokens = [];                      // from middleware we have res.user = user
+            await req.user.save();
+            clearAuthCookies(
+                res
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: "Logged out from all devices successfully",
+            });
+
+        } catch (error) {
+            next(error);
+        }
+};
+
+

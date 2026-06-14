@@ -42,7 +42,7 @@ const userSchema = new mongoose.Schema(
         role: {
             type: String,
             enum: ["admin", "educator", "customer"],
-            required: true,
+            default: null,
             index: true,
         },
 
@@ -57,6 +57,10 @@ const userSchema = new mongoose.Schema(
             default: null,
             index: true,
             sparse: true,
+        },
+        onboardingCompleted: {
+            type: Boolean,
+            default: false               // will be true when user choosed his role if he login via google
         },
 
         emailVerified: {
@@ -90,6 +94,12 @@ const userSchema = new mongoose.Schema(
         isActive: {
             type: Boolean,
             default: true,
+        },
+
+        passwordResetVersion: {
+            type: Number,
+            default: 0,
+            select: false
         },
     },
     {

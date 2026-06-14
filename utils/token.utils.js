@@ -72,13 +72,12 @@ const hashRefreshToken = ( refreshToken ) => {
 
 
 //reset password by token
-const generatePasswordResetToken = (
-    user
-) => {
+const generatePasswordResetToken = ( user ) => {
     return jwt.sign(
         {
             id: user._id,
             purpose: "password_reset",
+            version: user.passwordResetVersion
         },
         process.env.JWT_RESET_SECRET,
         {

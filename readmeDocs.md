@@ -33,3 +33,57 @@ exports.deleteCustomer = async (req, res, next) => {
 
 
 this will be our new api style.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+In AUth We Have Implemented This .
+
+✅ sendSignupOtp
+✅ verifySignupOtp
+✅ resendOtp
+
+✅ login
+✅ refreshToken
+✅ logout
+✅ logoutAllDevices
+
+✅ forgotPassword
+✅ verifyForgotPasswordOtp
+✅ resetPassword
+
+✅ authMiddleware
+✅ roleMiddleware
+
+✅ Web + Mobile auth strategy
+✅ Sliding Sessions
+✅ Refresh Token Rotation

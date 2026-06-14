@@ -2,7 +2,8 @@ const express = require("express");
 
 const router = express.Router();
 
-const { sendSignupOtp, verifySignupOtp , resendOtp , login , refreshToken , forgotPassword , verifyForgotPasswordOtp, resetPassword } = require("../controllers/auth.controller");
+const { sendSignupOtp, verifySignupOtp , resendOtp , login , refreshToken , forgotPassword , verifyForgotPasswordOtp, resetPassword , logout , logoutAllDevices } = require("../controllers/auth.controller");
+const authMiddleware = require("../middlewares/auth.middleware");
 
 router.post(
     "/send-signup-otp",
@@ -46,6 +47,24 @@ router.post(
 router.post(
     "/reset-password",
     resetPassword
+);
+
+
+
+
+
+
+router.post(
+    "/logout",
+    logout
+);
+
+
+
+router.post(
+    "/logout-all-devices",
+    authMiddleware,
+    logoutAllDevices
 );
 
 
