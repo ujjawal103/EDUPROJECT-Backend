@@ -8,11 +8,12 @@ const PendingUser = require("../models/pendingUser.model");
 const AppError = require("../utils/AppError");
 const { generateOtp, hashOtp, getOtpExpiry , verifyOtp } = require("../utils/otp.utils");
 const { sendOtpEmail } = require("../services/email.service");
-const { sendSignupOtpSchema , verifySignupOtpSchema , resendOtpSchema , loginSchema , forgotPasswordSchema , verifyForgotPasswordOtpSchema , resetPasswordSchema} = require("../validators/auth.validator");
+const { sendSignupOtpSchema , verifySignupOtpSchema , resendOtpSchema , loginSchema , forgotPasswordSchema , verifyForgotPasswordOtpSchema , resetPasswordSchema , googleAuthSchema} = require("../validators/auth.validator");
 const OTP_PURPOSES = require("../constants/otpPurposes");
 const sendAuthResponse = require("../utils/authResponse.utils");
 const {generateTokens , hashRefreshToken , verifyRefreshToken , generatePasswordResetToken} = require("../utils/token.utils");
 const {clearAuthCookies} = require("../utils/cookie.utils");
+const {verifyGoogleToken} = require("../utils/google.utils");
 
 
 
@@ -173,6 +174,9 @@ exports.verifySignupOtp = async ( req, res, next ) => {
 
                 role:
                     pendingUser.role,
+
+                onboardingCompleted :
+                    true,    
 
                 angelOneClientId:
                     pendingUser.angelOneClientId,
@@ -717,6 +721,170 @@ exports.logoutAllDevices = async ( req, res, next ) => {
         } catch (error) {
             next(error);
         }
+};
+
+
+
+
+
+
+
+
+
+
+exports.googleAuth = async ( req, res, next ) => {
+    try {
+        const { idToken } = googleAuthSchema.parse(req.body);
+
+        const payload = await verifyGoogleToken( idToken );
+
+        const {
+            sub,
+            email,
+            given_name,
+            family_name,
+            email_verified,
+        } = payload;
+
+        if (!email_verified) {
+            return next(
+                new AppError(
+                    "Google email not verified",
+                    400
+                )
+            );
+        }
+
+        let user = await User.findOne({ email }).select("+refreshTokens");
+
+        /*
+        |----------------------------------
+        | Existing User
+        |----------------------------------
+        */
+
+        if (user) {
+            if ( user.authProvider === "local") {
+                return next(
+                    new AppError(
+                        "Account already exists with email and password. Please login normally.",
+                        409
+                    )
+                );
+            }
+
+            /*
+            |----------------------------------
+            | Security Check
+            |----------------------------------
+            */
+
+            if ( user.googleId && user.googleId !== sub) {
+                return next(
+                    new AppError(
+                        "Google account mismatch",
+                        401
+                    )
+                );
+            }
+        }
+
+        /*
+        |----------------------------------
+        | New User
+        |----------------------------------
+        */
+
+        else {
+
+            user = await User.create({
+                    fullName: {
+                        firstName:
+                            given_name ||
+                            "User",
+
+                        lastName:
+                            family_name ||
+                            "",
+                    },
+
+                    email,
+
+                    authProvider: "google",
+
+                    googleId: sub,
+
+                    emailVerified: true,
+
+                    role: null,
+
+                    onboardingCompleted: false,
+            });
+
+            user = await User.findById( user._id).select("+refreshTokens");
+        }
+
+        const { accessToken, refreshToken } = generateTokens(user);
+
+        user.refreshTokens.push( hashRefreshToken( refreshToken));
+
+        await user.save();
+
+        return sendAuthResponse({
+            req,
+            res,
+            statusCode: 200,
+            user,
+            accessToken,
+            refreshToken,
+            message:
+                "Login successful",
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+
+exports.selectRole = async ( req, res, next ) => {
+    try {
+        const { role } = selectRoleSchema.parse( req.body );
+
+        if ( req.user.authProvider !== "google" ) {
+            return next(
+                new AppError(
+                    "Role selection is not available",
+                    400
+                )
+            );
+        }
+
+        if ( req.user.onboardingCompleted ) {
+            return next(
+                new AppError(
+                    "Role already selected",
+                    400
+                )
+            );
+        }
+
+        req.user.role = role;
+
+        req.user.onboardingCompleted = true;
+
+        await req.user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Role selected successfully",
+            user: req.user,
+        });
+
+    } catch (error) {
+        next(error);
+    }
 };
 
 

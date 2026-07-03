@@ -120,6 +120,17 @@ const resetPasswordSchema = z.object({
     });
 
 
+const googleAuthSchema =z.object({ 
+        idToken: z.string().min(1),
+});    
+
+const selectRoleSchema = z.object({
+    role: z.enum([
+        "customer",
+        "educator",
+    ]),
+});
+
 
 module.exports = {
     sendSignupOtpSchema,
@@ -129,4 +140,6 @@ module.exports = {
     forgotPasswordSchema,
     verifyForgotPasswordOtpSchema,
     resetPasswordSchema,
+    googleAuthSchema,
+    selectRoleSchema
 };

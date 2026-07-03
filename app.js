@@ -12,6 +12,7 @@ const errorMiddleware = require("./middlewares/error.middleware");
 const AppError = require("./utils/AppError");
 
 const authRoutes = require("./routes/auth.routes");
+const userRoutes = require("./routes/user.routes");
 
 
 
@@ -29,13 +30,14 @@ app.use(sanitizeMiddleware);
 app.use(cookieParser());
 
 
-app.use("/api/v1/auth" , authRoutes)
+app.use("/api/v1/auth" , authRoutes);
+app.use("/api/v1/user" , userRoutes);
 
-app.get("/" , (req,res) =>{
+app.get("/api/" , (req,res) =>{
     res.send("hello world");
 })
 
-app.get("/health", (req,res)=>{
+app.get("/api/health", (req,res)=>{
     return res.status(200).json({
         success: true,
         message: "Server is healthy"

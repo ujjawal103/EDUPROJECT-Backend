@@ -2,7 +2,7 @@ const express = require("express");
 
 const router = express.Router();
 
-const { sendSignupOtp, verifySignupOtp , resendOtp , login , refreshToken , forgotPassword , verifyForgotPasswordOtp, resetPassword , logout , logoutAllDevices } = require("../controllers/auth.controller");
+const { sendSignupOtp, verifySignupOtp , resendOtp , login , refreshToken , forgotPassword , verifyForgotPasswordOtp, resetPassword , logout , logoutAllDevices , googleAuth , selectRole } = require("../controllers/auth.controller");
 const authMiddleware = require("../middlewares/auth.middleware");
 
 router.post(
@@ -65,6 +65,19 @@ router.post(
     "/logout-all-devices",
     authMiddleware,
     logoutAllDevices
+);
+
+
+
+router.post(
+    "/google",
+    googleAuth
+);
+
+router.patch(
+    "/select-role",
+    authMiddleware,
+    selectRole
 );
 
 
